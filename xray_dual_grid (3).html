@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lat Ceph Dual Grid</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f12;--bg2:#161a20;--bg3:#1e232b;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --text:#e8eaed;--text2:#8a9099;--text3:#555c66;
+  --accent:#4fc3f7;--accent-dim:rgba(79,195,247,0.12);
+  --green:#69f0ae;--green-dim:rgba(105,240,174,0.12);
+  --warn:#ffd54f;--warn-dim:rgba(255,213,79,0.12);
+  --radius:6px;
+}
+body{background:var(--bg);color:var(--text);font-family:'SF Pro Display','Segoe UI',system-ui,sans-serif;font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--bg2);border-bottom:0.5px solid var(--border);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-icon{width:26px;height:26px;background:var(--accent-dim);border:0.5px solid rgba(79,195,247,0.3);border-radius:var(--radius);display:flex;align-items:center;justify-content:center}
+.logo-icon svg{width:14px;height:14px;stroke:var(--accent);fill:none;stroke-width:1.5}
+.logo-text{font-size:13px;font-weight:600;letter-spacing:-0.3px}
+.logo-sub{font-size:10px;color:var(--text3)}
+#scale-badge{font-size:11px;font-family:monospace;color:var(--accent);background:var(--accent-dim);border:0.5px solid rgba(79,195,247,0.25);padding:2px 8px;border-radius:20px;display:none}
+
+.main{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:236px;flex-shrink:0;background:var(--bg2);border-right:0.5px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.sb-sec{padding:9px 11px;border-bottom:0.5px solid var(--border)}
+.sec-title{font-size:9px;font-weight:700;letter-spacing:0.9px;text-transform:uppercase;color:var(--text3);margin-bottom:7px}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:4px;padding:5px 8px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg3);color:var(--text);font-size:11px;font-weight:500;cursor:pointer;width:100%;margin-bottom:4px;transition:background 0.1s}
+.btn:last-child{margin-bottom:0}
+.btn:hover{background:rgba(255,255,255,0.06)}
+.btn.primary{background:var(--accent-dim);color:var(--accent);border-color:rgba(79,195,247,0.3)}
+.btn.success{background:var(--green-dim);color:var(--green);border-color:rgba(105,240,174,0.3)}
+.btn.sm{font-size:10px;padding:3px 6px}
+.btn-row{display:flex;gap:4px}
+.btn-row .btn{margin-bottom:0}
+
+.status{padding:5px 8px;border-radius:var(--radius);font-size:11px;line-height:1.45;display:flex;align-items:flex-start;gap:5px;margin-bottom:6px}
+.status.cal{background:var(--warn-dim);color:var(--warn);border:0.5px solid rgba(255,213,79,0.2)}
+.status.done{background:var(--green-dim);color:var(--green);border:0.5px solid rgba(105,240,174,0.2)}
+.status.info{background:var(--bg3);color:var(--text2);border:0.5px solid var(--border)}
+.status.lm{background:rgba(255,112,67,0.09);color:#ff8a65;border:0.5px solid rgba(255,112,67,0.22)}
+.sdot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;margin-top:4px}
+
+.field{margin-bottom:6px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:10px;color:var(--text2);margin-bottom:3px}
+.field-row{display:flex;align-items:center;gap:5px}
+input[type=range]{flex:1;height:3px;-webkit-appearance:none;background:var(--border2);border-radius:2px;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer}
+input[type=number]{width:48px;padding:2px 5px;background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius);color:var(--text);font-size:11px;font-family:monospace;outline:none}
+input[type=number]:focus{border-color:var(--accent)}
+input[type=color]{width:22px;height:18px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);cursor:pointer;padding:1px}
+.rval{font-size:10px;font-family:monospace;color:var(--text2);min-width:26px;text-align:right}
+.xy-row{display:flex;gap:4px;align-items:center}
+.xyl{font-size:10px;color:var(--text3)}
+.tog{font-size:10px;padding:2px 7px;border-radius:20px;border:0.5px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer}
+.tog.on{background:var(--green-dim);color:var(--green);border-color:rgba(105,240,174,0.3)}
+
+/* landmark buttons — 3 col */
+.lm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-bottom:6px}
+.lm-btn{padding:6px 3px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg3);color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;text-align:center;transition:all 0.12s;line-height:1.2}
+.lm-btn:hover{background:rgba(255,255,255,0.05);color:var(--text)}
+.lm-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:2px;vertical-align:middle}
+
+/* ── MEASUREMENT PANELS ── */
+.meas-panel{background:var(--bg3);border-radius:var(--radius);border:0.5px solid var(--border);overflow:hidden;margin-bottom:5px}
+.meas-panel:last-child{margin-bottom:0}
+.meas-grp{font-size:9px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--text3);padding:4px 8px 3px;background:rgba(0,0,0,0.25)}
+.meas-row{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-bottom:0.5px solid var(--border)}
+.meas-row:last-child{border-bottom:none}
+.meas-label{font-size:10px;color:var(--text2);display:flex;align-items:center;gap:3px;flex:1;min-width:0}
+.meas-label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meas-val{font-size:11px;font-weight:700;font-family:monospace;white-space:nowrap;margin-left:4px}
+.mc{display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.meas-empty{font-size:10px;color:var(--text3);padding:8px;text-align:center;line-height:1.6}
+
+/* comparison table */
+.cmp-table{width:100%;border-collapse:collapse;font-size:10px}
+.cmp-table th{padding:4px 6px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text3);background:rgba(0,0,0,0.25);text-align:left}
+.cmp-table th:not(:first-child){text-align:right}
+.cmp-table td{padding:4px 6px;border-bottom:0.5px solid var(--border);color:var(--text2);vertical-align:middle}
+.cmp-table td:not(:first-child){text-align:right;font-family:monospace;font-weight:600}
+.cmp-table tr:last-child td{border-bottom:none}
+.cmp-table .name-cell{color:var(--text2);display:flex;align-items:center;gap:3px;font-size:10px}
+.diff-pos{color:#69f0ae}
+.diff-neg{color:#ff7043}
+.diff-zero{color:var(--text3)}
+
+/* ── CANVAS PANEL ── */
+.canvas-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.img-tabs{display:flex;border-bottom:0.5px solid var(--border);background:var(--bg2);flex-shrink:0}
+.img-tab{flex:1;padding:7px 10px;font-size:11px;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.1s;text-align:center}
+.img-tab:hover{color:var(--text2)}
+.img-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tbadge{font-size:9px;padding:1px 5px;border-radius:10px;margin-left:3px}
+.img-tab.active .tbadge{background:var(--accent-dim);color:var(--accent)}
+.tbadge.done{background:var(--green-dim);color:var(--green)}
+
+.canvas-area{flex:1;background:#080a0c;overflow:auto;position:relative}
+.cv-view{display:none;position:absolute;inset:0;overflow:auto}
+.cv-view.active{display:block}
+
+.drop-ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;cursor:pointer}
+.drop-ov.hidden{display:none}
+.drop-icon{width:44px;height:44px;background:var(--bg3);border:0.5px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center}
+.drop-icon svg{width:20px;height:20px;stroke:var(--text3);fill:none;stroke-width:1.5}
+.drop-title{font-size:12px;color:var(--text2)}
+.drop-sub{font-size:10px;color:var(--text3)}
+.drop-btn{padding:4px 12px;border-radius:var(--radius);background:var(--accent-dim);color:var(--accent);border:0.5px solid rgba(79,195,247,0.3);cursor:pointer;font-size:11px}
+.drop-num{width:28px;height:28px;border-radius:50%;background:var(--accent-dim);border:0.5px solid rgba(79,195,247,0.3);display:flex;align-items:center;justify-content:center;color:var(--accent);font-size:13px;font-weight:600}
+
+.cv-wrap{position:relative;line-height:0;display:inline-block}
+.cv-wrap canvas{display:block}
+.over-cv{position:absolute;top:0;left:0;pointer-events:none}
+.ui-cv{position:absolute;top:0;left:0;pointer-events:auto;cursor:crosshair}
+
+footer{display:flex;align-items:center;justify-content:space-between;padding:4px 14px;background:var(--bg2);border-top:0.5px solid var(--border);flex-shrink:0}
+#coord-bar{font-size:11px;font-family:monospace;color:var(--text2)}
+#img-info{font-size:10px;color:var(--text3)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon"><svg viewBox="0 0 16 16"><rect x="1" y="1" width="14" height="14" rx="1"/><line x1="1" y1="5.5" x2="15" y2="5.5"/><line x1="1" y1="10.5" x2="15" y2="10.5"/><line x1="5.5" y1="1" x2="5.5" y2="15"/><line x1="10.5" y1="1" x2="10.5" y2="15"/></svg></div>
+    <div><div class="logo-text">Lat Ceph Dual Grid</div><div class="logo-sub">1mm 격자 + 독립 랜드마크 비교</div></div>
+  </div>
+  <span id="scale-badge">—</span>
+</header>
+
+<div class="main">
+<div class="sidebar">
+
+  <div class="sb-sec">
+    <div class="sec-title">캘리브레이션 (이미지 1 기준)</div>
+    <div class="status cal" id="cal-status"><div class="sdot"></div><span id="cal-text">이미지 1을 먼저 업로드하세요</span></div>
+    <button class="btn primary" id="btn-cal" onclick="startCal()">두 점으로 0.5cm 설정</button>
+    <button class="btn sm" onclick="resetCal()">캘리브레이션 초기화</button>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">격자 원점</div>
+    <div class="field">
+      <label>오프셋 X / Y (mm)</label>
+      <div class="xy-row">
+        <span class="xyl">X</span><input type="number" id="offx" value="0" step="0.1">
+        <span class="xyl">Y</span><input type="number" id="offy" value="0" step="0.1">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btn-origin" onclick="toggleOrigin()">클릭으로 원점 지정</button>
+      <button class="btn sm" style="width:auto;flex-shrink:0" onclick="resetOff()">초기화</button>
+    </div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">랜드마크 — <span id="lm-tab-label">이미지 1</span></div>
+    <div class="lm-grid">
+      <div class="lm-btn" id="lmbtn-A"   onclick="selectLm('A')">  <span class="lm-dot" style="background:#4fc3f7"></span>A</div>
+      <div class="lm-btn" id="lmbtn-B"   onclick="selectLm('B')">  <span class="lm-dot" style="background:#69f0ae"></span>B</div>
+      <div class="lm-btn" id="lmbtn-Pog" onclick="selectLm('Pog')"><span class="lm-dot" style="background:#ce93d8"></span>Pog</div>
+      <div class="lm-btn" id="lmbtn-Ls"  onclick="selectLm('Ls')"> <span class="lm-dot" style="background:#ffd54f"></span>Ls</div>
+      <div class="lm-btn" id="lmbtn-Li"  onclick="selectLm('Li')"> <span class="lm-dot" style="background:#ff7043"></span>Li</div>
+      <div class="lm-btn" id="lmbtn-UL"  onclick="selectLm('UL')"> <span class="lm-dot" style="background:#f48fb1"></span>UL</div>
+    </div>
+    <div style="font-size:9px;font-weight:700;letter-spacing:0.7px;text-transform:uppercase;color:var(--text3);margin-bottom:5px">이미지간 거리 측정</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:6px">
+      <div class="lm-btn" id="lmbtn-Point1" onclick="selectPoint(1)" style="font-size:10px;line-height:1.5"><span class="lm-dot" style="background:#ff6ec7"></span>Point1<br><span style="font-size:9px;color:var(--text3);font-weight:400">이미지 1</span></div>
+      <div class="lm-btn" id="lmbtn-Point2" onclick="selectPoint(2)" style="font-size:10px;line-height:1.5"><span class="lm-dot" style="background:#a5d6a7"></span>Point2<br><span style="font-size:9px;color:var(--text3);font-weight:400">이미지 2</span></div>
+    </div>
+    <button class="btn sm" onclick="clearLandmarks()">현재 이미지 랜드마크 초기화</button>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">측정 결과 — <span id="meas-tab-label">이미지 1</span></div>
+    <div id="meas-content"><div class="meas-empty">랜드마크를 찍으면<br>자동 계산됩니다</div></div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">이미지 1 vs 2 비교</div>
+    <div id="cmp-content"><div class="meas-empty">두 이미지 모두 측정 후<br>비교 결과가 표시됩니다</div></div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">Point1 ↔ Point2 거리</div>
+    <div id="pt-dist-content"><div class="meas-empty">이미지 1에 Point1,<br>이미지 2에 Point2를<br>찍으면 거리가 계산됩니다</div></div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">격자 스타일</div>
+    <div class="field"><label>격자 색상</label><input type="color" id="gcol" value="#00ff88"></div>
+    <div class="field"><label>투명도</label><div class="field-row"><input type="range" id="galpha" min="5" max="80" value="30" step="1"><span class="rval" id="aval">30%</span></div></div>
+    <div class="field"><label>mm 라벨</label><button class="tog on" id="btn-label" onclick="toggleLabel()">표시 중</button></div>
+  </div>
+
+  <div class="sb-sec">
+    <div class="sec-title">이미지 조정 (현재 탭)</div>
+    <div class="field"><label>밝기</label><div class="field-row"><input type="range" id="bright" min="50" max="200" value="100" step="1"><span class="rval" id="bval">100%</span></div></div>
+    <div class="field"><label>대비</label><div class="field-row"><input type="range" id="contr" min="50" max="200" value="100" step="1"><span class="rval" id="cval">100%</span></div></div>
+  </div>
+
+  <div class="sb-sec" style="border-bottom:none">
+    <div class="sec-title">파일</div>
+    <button class="btn" onclick="triggerUpload(1)">이미지 1 불러오기</button>
+    <button class="btn" onclick="triggerUpload(2)">이미지 2 불러오기</button>
+    <button class="btn success" onclick="saveImage()">격자 포함 저장 (현재 탭)</button>
+    <input type="file" id="fi1" accept="image/*" style="display:none">
+    <input type="file" id="fi2" accept="image/*" style="display:none">
+  </div>
+</div>
+
+<div class="canvas-panel">
+  <div class="img-tabs">
+    <div class="img-tab active" id="tab1" onclick="switchTab(1)">이미지 1 <span class="tbadge" id="badge1">캘리브레이션</span></div>
+    <div class="img-tab"        id="tab2" onclick="switchTab(2)">이미지 2 <span class="tbadge" id="badge2">대기</span></div>
+  </div>
+  <div class="canvas-area">
+    <div class="cv-view active" id="view1">
+      <div class="drop-ov" id="drop1" onclick="triggerUpload(1)">
+        <div class="drop-num">1</div>
+        <div class="drop-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l6-6 4 4 3-3 5 5"/><circle cx="8.5" cy="8.5" r="1.5"/></svg></div>
+        <div class="drop-title">첫 번째 X-ray 이미지</div>
+        <div class="drop-sub">캘리브레이션 기준 이미지</div>
+        <div class="drop-btn">파일 선택</div>
+      </div>
+      <div class="cv-wrap" id="wrap1" style="display:none">
+        <canvas id="ic1"></canvas>
+        <canvas class="over-cv" id="gc1"></canvas>
+        <canvas class="over-cv" id="lmc1"></canvas>
+        <canvas class="ui-cv"   id="uc1"></canvas>
+      </div>
+    </div>
+    <div class="cv-view" id="view2">
+      <div class="drop-ov" id="drop2" onclick="triggerUpload(2)">
+        <div class="drop-num">2</div>
+        <div class="drop-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 16l6-6 4 4 3-3 5 5"/><circle cx="8.5" cy="8.5" r="1.5"/></svg></div>
+        <div class="drop-title">두 번째 X-ray 이미지</div>
+        <div class="drop-sub">독립적으로 랜드마크 측정</div>
+        <div class="drop-btn">파일 선택</div>
+      </div>
+      <div class="cv-wrap" id="wrap2" style="display:none">
+        <canvas id="ic2"></canvas>
+        <canvas class="over-cv" id="gc2"></canvas>
+        <canvas class="over-cv" id="lmc2"></canvas>
+        <canvas class="ui-cv"   id="uc2"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<footer>
+  <div id="coord-bar">—</div>
+  <div id="img-info">—</div>
+</footer>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+var imgs=[null,null], dims=[{w:0,h:0},{w:0,h:0}];
+var bright=[100,100], contr=[100,100];
+var pxPerCm=null;
+var calPts=[], calMode=false, originMode=false, showLabel=true, currentTab=1;
+
+// Independent landmarks per image [img1, img2]
+var LM=[
+  {A:null,B:null,Pog:null,Ls:null,Li:null,UL:null},
+  {A:null,B:null,Pog:null,Ls:null,Li:null,UL:null}
+];
+var LM_COL={A:'#4fc3f7',B:'#69f0ae',Pog:'#ce93d8',Ls:'#ffd54f',Li:'#ff7043',UL:'#f48fb1'};
+var LM_KEYS=['A','B','Pog','Ls','Li','UL'];
+var activeLm=null;
+
+// Point1 (image1) and Point2 (image2) for cross-image distance
+var PT={pt1:null, pt2:null};  // pixel coords in each image's own space
+var PT_COL={pt1:'#ff6ec7', pt2:'#a5d6a7'};
+var activePoint=null; // 1 or 2
+
+/* ══════════════════════════════════════════════════════
+   CANVAS REFS
+══════════════════════════════════════════════════════ */
+var IC =[document.getElementById('ic1'), document.getElementById('ic2')];
+var GC =[document.getElementById('gc1'), document.getElementById('gc2')];
+var LMC=[document.getElementById('lmc1'),document.getElementById('lmc2')];
+var UC =[document.getElementById('uc1'), document.getElementById('uc2')];
+var ic =[IC[0].getContext('2d'), IC[1].getContext('2d')];
+var gc =[GC[0].getContext('2d'), GC[1].getContext('2d')];
+var lmc=[LMC[0].getContext('2d'),LMC[1].getContext('2d')];
+var uc =[UC[0].getContext('2d'), UC[1].getContext('2d')];
+
+/* ══════════════════════════════════════════════════════
+   FILE LOADING
+══════════════════════════════════════════════════════ */
+document.getElementById('fi1').addEventListener('change',function(){loadFile(1,this.files[0])});
+document.getElementById('fi2').addEventListener('change',function(){loadFile(2,this.files[0])});
+['view1','view2'].forEach(function(id,i){
+  var el=document.getElementById(id);
+  el.addEventListener('dragover',function(e){e.preventDefault()});
+  el.addEventListener('drop',function(e){e.preventDefault();loadFile(i+1,e.dataTransfer.files[0])});
+});
+function triggerUpload(n){document.getElementById('fi'+n).click()}
+
+function loadFile(n,file){
+  if(!file)return;
+  var img=new Image();
+  img.onload=function(){
+    imgs[n-1]=img;
+    dims[n-1]={w:img.naturalWidth,h:img.naturalHeight};
+    IC[n-1].width=GC[n-1].width=LMC[n-1].width=UC[n-1].width=dims[n-1].w;
+    IC[n-1].height=GC[n-1].height=LMC[n-1].height=UC[n-1].height=dims[n-1].h;
+    drawImg(n);
+    document.getElementById('drop'+n).classList.add('hidden');
+    document.getElementById('wrap'+n).style.display='block';
+    document.getElementById('img-info').textContent=dims[n-1].w+'×'+dims[n-1].h+'px  |  '+file.name;
+    if(n===1)startCal();
+    else{drawGrid(2);setCalStatus('done','이미지 2 로드 완료. 독립적으로 랜드마크를 찍으세요.')}
+    updateBadge(n); switchTab(n);
+  };
+  img.src=URL.createObjectURL(file);
+}
+
+function drawImg(n){
+  ic[n-1].filter='brightness('+bright[n-1]+'%) contrast('+contr[n-1]+'%)';
+  ic[n-1].drawImage(imgs[n-1],0,0);
+  ic[n-1].filter='none';
+}
+
+/* ══════════════════════════════════════════════════════
+   GRID  (darker: 1mm line alpha boosted)
+══════════════════════════════════════════════════════ */
+function drawGrid(n){
+  var ctx=gc[n-1],W=dims[n-1].w,H=dims[n-1].h;
+  ctx.clearRect(0,0,W,H);
+  if(!pxPerCm||!imgs[n-1])return;
+  var pxmm=pxPerCm/10;
+  var alpha=parseInt(document.getElementById('galpha').value)/100;
+  var hex=document.getElementById('gcol').value;
+  var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  var ox2=parseFloat(document.getElementById('offx').value)||0;
+  var oy2=parseFloat(document.getElementById('offy').value)||0;
+  var sp=pxmm; if(sp<0.15)return;
+  var ox=((ox2%1)*pxmm+sp)%sp, oy=((oy2%1)*pxmm+sp)%sp;
+  var smx=-Math.ceil(ox2), smy=-Math.ceil(oy2);
+
+  // line alpha levels:  1mm = alpha*1.8,  5mm = alpha*2.8,  10mm = alpha*4.5
+  for(var xi=0,x=ox;x<=W;x+=sp,xi++){
+    var mm=smx+xi,is10=(mm%10===0),is5=(mm%5===0);
+    var a=is10?Math.min(alpha*4.5,1):is5?Math.min(alpha*2.8,1):Math.min(alpha*1.8,1);
+    ctx.strokeStyle='rgba('+r+','+g+','+b+','+a+')';
+    ctx.lineWidth=is10?1.8:is5?1.0:0.6;
+    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();
+    if(showLabel&&is10){ctx.fillStyle='rgba('+r+','+g+','+b+',0.9)';ctx.font='bold 11px monospace';ctx.fillText(mm+'mm',x+2,13)}
+  }
+  for(var yi=0,y=oy;y<=H;y+=sp,yi++){
+    var mm2=smy+yi,is10y=(mm2%10===0),is5y=(mm2%5===0);
+    var a2=is10y?Math.min(alpha*4.5,1):is5y?Math.min(alpha*2.8,1):Math.min(alpha*1.8,1);
+    ctx.strokeStyle='rgba('+r+','+g+','+b+','+a2+')';
+    ctx.lineWidth=is10y?1.8:is5y?1.0:0.6;
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    if(showLabel&&is10y&&mm2!==0){ctx.fillStyle='rgba('+r+','+g+','+b+',0.9)';ctx.font='bold 11px monospace';ctx.fillText(mm2+'mm',3,y-3)}
+  }
+}
+function drawBothGrids(){drawGrid(1);drawGrid(2)}
+
+/* ══════════════════════════════════════════════════════
+   GEOMETRY
+══════════════════════════════════════════════════════ */
+function projectOnLine(P,A,B){
+  var dx=B.x-A.x,dy=B.y-A.y,lsq=dx*dx+dy*dy;
+  if(lsq===0)return{x:A.x,y:A.y};
+  var t=((P.x-A.x)*dx+(P.y-A.y)*dy)/lsq;
+  return{x:A.x+t*dx,y:A.y+t*dy};
+}
+function distToLine(P,A,B){
+  var dx=B.x-A.x,dy=B.y-A.y,len=Math.sqrt(dx*dx+dy*dy);
+  if(len===0)return Math.hypot(P.x-A.x,P.y-A.y);
+  return Math.abs((P.x-A.x)*dy-(P.y-A.y)*dx)/len;
+}
+function signedDist(P,A,B){
+  var dx=B.x-A.x,dy=B.y-A.y,len=Math.sqrt(dx*dx+dy*dy);
+  if(len===0)return 0;
+  return((P.x-A.x)*dy-(P.y-A.y)*dx)/len;
+}
+// FABA: angle between A-B line and horizontal (image X-axis)
+// In image coords: horizontal = constant Y. We measure angle of AB from horizontal.
+function lineAngleFromHoriz(A,B){
+  // atan2 gives angle in standard math coords. Image Y is flipped, but for angle magnitude it doesn't matter.
+  return Math.abs(Math.atan2(B.y-A.y, B.x-A.x)*180/Math.PI);
+  // This gives angle from the positive-X axis. We want angle from horizontal, so:
+  // If dx>0,dy=0 → 0°. If vertical → 90°.
+  // But we want the acute angle: clamp to [0,90]
+}
+function acuteAngleFromHoriz(A,B){
+  var dx=B.x-A.x,dy=B.y-A.y;
+  var ang=Math.atan2(Math.abs(dy),Math.abs(dx))*180/Math.PI;
+  return ang; // 0° = horizontal, 90° = vertical
+}
+
+/* ══════════════════════════════════════════════════════
+   LANDMARK DRAWING  (small markers, minimal fill)
+══════════════════════════════════════════════════════ */
+function drawLandmarks(n){
+  var ctx=lmc[n-1],W=dims[n-1].w,H=dims[n-1].h;
+  ctx.clearRect(0,0,W,H);
+  if(!imgs[n-1]||!pxPerCm)return;
+
+  var lm=LM[n-1];
+  var pA=lm.A,pB=lm.B,pPog=lm.Pog,pLs=lm.Ls,pLi=lm.Li,pUL=lm.UL;
+
+  /* A-B line */
+  if(pA&&pB){
+    var dxAB=pB.x-pA.x,dyAB=pB.y-pA.y,lenAB=Math.sqrt(dxAB*dxAB+dyAB*dyAB);
+    if(lenAB>0){
+      var uxAB=dxAB/lenAB,uyAB=dyAB/lenAB,ext=Math.max(W,H)*2;
+      ctx.beginPath();ctx.moveTo(pA.x-uxAB*ext,pA.y-uyAB*ext);ctx.lineTo(pA.x+uxAB*ext,pA.y+uyAB*ext);
+      ctx.strokeStyle='rgba(255,255,255,0.15)';ctx.lineWidth=0.8;ctx.setLineDash([8,6]);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(pA.x,pA.y);ctx.lineTo(pB.x,pB.y);
+      ctx.strokeStyle='rgba(255,255,255,0.38)';ctx.lineWidth=1.2;ctx.stroke();
+    }
+    function drawPerp(pt,col){
+      if(!pt)return;
+      var foot=projectOnLine(pt,pA,pB);
+      ctx.beginPath();ctx.moveTo(pt.x,pt.y);ctx.lineTo(foot.x,foot.y);
+      ctx.strokeStyle=col+'aa';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(foot.x,foot.y,2.5,0,Math.PI*2);
+      ctx.fillStyle=col;ctx.globalAlpha=0.7;ctx.fill();ctx.globalAlpha=1;
+    }
+    drawPerp(pLs,LM_COL.Ls);
+    drawPerp(pLi,LM_COL.Li);
+  }
+
+  /* vertical lines through B, Pog */
+  if(pB){
+    ctx.beginPath();ctx.moveTo(pB.x,0);ctx.lineTo(pB.x,H);
+    ctx.strokeStyle=LM_COL.B+'55';ctx.lineWidth=0.8;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+  }
+  if(pPog){
+    ctx.beginPath();ctx.moveTo(pPog.x,0);ctx.lineTo(pPog.x,H);
+    ctx.strokeStyle=LM_COL.Pog+'55';ctx.lineWidth=0.8;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
+    if(pB){
+      var yM=pPog.y;
+      ctx.beginPath();ctx.moveTo(pB.x,yM);ctx.lineTo(pPog.x,yM);
+      ctx.strokeStyle='rgba(206,147,216,0.45)';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    }
+  }
+  /* vertical lines through Ls, Li */
+  if(pLs){
+    ctx.beginPath();ctx.moveTo(pLs.x,0);ctx.lineTo(pLs.x,H);
+    ctx.strokeStyle=LM_COL.Ls+'44';ctx.lineWidth=0.7;ctx.setLineDash([4,5]);ctx.stroke();ctx.setLineDash([]);
+  }
+  if(pLi){
+    ctx.beginPath();ctx.moveTo(pLi.x,0);ctx.lineTo(pLi.x,H);
+    ctx.strokeStyle=LM_COL.Li+'44';ctx.lineWidth=0.7;ctx.setLineDash([4,5]);ctx.stroke();ctx.setLineDash([]);
+    if(pLs){
+      var yC=Math.min(pLs.y,pLi.y)-18;
+      ctx.beginPath();ctx.moveTo(pLs.x,yC);ctx.lineTo(pLi.x,yC);
+      ctx.strokeStyle='rgba(255,235,100,0.38)';ctx.lineWidth=1.2;ctx.setLineDash([4,3]);ctx.stroke();ctx.setLineDash([]);
+    }
+  }
+  /* UL-A line */
+  if(pUL&&pA){
+    var dxUA=pA.x-pUL.x,dyUA=pA.y-pUL.y,lUA=Math.sqrt(dxUA*dxUA+dyUA*dyUA);
+    if(lUA>0){
+      var ext2=Math.max(W,H)*2,uxUA=dxUA/lUA,uyUA=dyUA/lUA;
+      ctx.beginPath();ctx.moveTo(pUL.x-uxUA*ext2,pUL.y-uyUA*ext2);ctx.lineTo(pUL.x+uxUA*ext2,pUL.y+uyUA*ext2);
+      ctx.strokeStyle=LM_COL.UL+'44';ctx.lineWidth=0.8;ctx.setLineDash([6,5]);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(pUL.x,pUL.y);ctx.lineTo(pA.x,pA.y);
+      ctx.strokeStyle=LM_COL.UL+'99';ctx.lineWidth=1.2;ctx.stroke();
+    }
+  }
+
+  /* point markers — SMALL: ring 4px + center dot 1.5px */
+  function drawPt(p,name,col){
+    if(!p)return;
+    // thin ring
+    ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);
+    ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+    // tiny center dot
+    ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,Math.PI*2);
+    ctx.fillStyle=col;ctx.fill();
+    // label
+    ctx.fillStyle=col;ctx.font='bold 11px monospace';
+    ctx.fillText(name,p.x+6,p.y-5);
+  }
+  drawPt(pA,'A',LM_COL.A);
+  drawPt(pB,'B',LM_COL.B);
+  drawPt(pPog,'Pog',LM_COL.Pog);
+  drawPt(pLs,'Ls',LM_COL.Ls);
+  drawPt(pLi,'Li',LM_COL.Li);
+  drawPt(pUL,'UL',LM_COL.UL);
+
+  // Draw Point1 on image1, Point2 on image2
+  if(n===1&&PT.pt1) drawPt(PT.pt1,'P1',PT_COL.pt1);
+  if(n===2&&PT.pt2) drawPt(PT.pt2,'P2',PT_COL.pt2);
+}
+function drawBothLandmarks(){drawLandmarks(1);drawLandmarks(2)}
+
+/* ══════════════════════════════════════════════════════
+   COMPUTE MEASUREMENTS for one image's LM set
+══════════════════════════════════════════════════════ */
+function computeMeas(lm, pxmm){
+  var res={};
+  if(!pxmm)return res;
+  var pA=lm.A,pB=lm.B,pPog=lm.Pog,pLs=lm.Ls,pLi=lm.Li,pUL=lm.UL;
+
+  if(pA&&pB){
+    res.abDist=(Math.hypot(pB.x-pA.x,pB.y-pA.y)/pxmm);
+    if(pLs) res.lsAB=distToLine(pLs,pA,pB)/pxmm;
+    if(pLi) res.liAB=distToLine(pLi,pA,pB)/pxmm;
+    if(pLs&&pLi){
+      var lsSgn=signedDist(pLs,pA,pB)/pxmm;
+      var liSgn=signedDist(pLi,pA,pB)/pxmm;
+      res.lsliDiff=lsSgn-liSgn;
+    }
+    // FABA: angle of AB from horizontal
+    res.faba=acuteAngleFromHoriz(pA,pB);
+  }
+  if(pB&&pPog) res.mls=Math.abs((pPog.x-pB.x)/pxmm);
+  if(pLs&&pLi) res.lsliH=Math.abs((pLi.x-pLs.x)/pxmm);
+  if(pUL&&pA)  res.lowerNLA=acuteAngleFromHoriz(pUL,pA);
+  return res;
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER MEASUREMENT PANEL (single image)
+══════════════════════════════════════════════════════ */
+function chip(col){return '<span class="mc" style="background:'+col+'"></span>'}
+function fmtMm(v){return v!==undefined?v.toFixed(1)+' mm':'—'}
+function fmtDeg(v){return v!==undefined?v.toFixed(1)+'°':'—'}
+
+function renderMeas(lm, pxmm){
+  if(!pxmm){return '<div class="meas-empty">캘리브레이션 후 표시됩니다</div>'}
+  var m=computeMeas(lm,pxmm);
+  var keys=Object.keys(m);
+  if(keys.length===0){return '<div class="meas-empty">랜드마크를 찍으면<br>자동 계산됩니다</div>'}
+
+  var html='<div class="meas-panel">';
+  var hasAB=m.abDist!==undefined;
+  if(hasAB){
+    html+='<div class="meas-grp">AB선 기준</div>';
+    html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.A)+chip(LM_COL.B)+'<span>A-B 거리</span></span><span class="meas-val" style="color:var(--text)">'+fmtMm(m.abDist)+'</span></div>';
+    if(m.lsAB!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.Ls)+'<span>Ls → AB 수직거리</span></span><span class="meas-val" style="color:var(--warn)">'+fmtMm(m.lsAB)+'</span></div>';
+    if(m.liAB!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.Li)+'<span>Li → AB 수직거리</span></span><span class="meas-val" style="color:#ff7043">'+fmtMm(m.liAB)+'</span></div>';
+    if(m.lsliDiff!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.Ls)+chip(LM_COL.Li)+'<span>Ls − Li 차이</span></span><span class="meas-val" style="color:var(--accent)">'+(m.lsliDiff>=0?'+':'')+m.lsliDiff.toFixed(1)+' mm</span></div>';
+  }
+  if(m.mls!==undefined||m.lsliH!==undefined){
+    html+='<div class="meas-grp">수직선 수평거리</div>';
+    if(m.mls!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.B)+chip(LM_COL.Pog)+'<span>MLS (B↔Pog)</span></span><span class="meas-val" style="color:#ce93d8">'+fmtMm(m.mls)+'</span></div>';
+    if(m.lsliH!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.Ls)+chip(LM_COL.Li)+'<span>Ls↔Li 수직선</span></span><span class="meas-val" style="color:var(--warn)">'+fmtMm(m.lsliH)+'</span></div>';
+  }
+  if(m.faba!==undefined||m.lowerNLA!==undefined){
+    html+='<div class="meas-grp">각도</div>';
+    if(m.faba!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.A)+chip(LM_COL.B)+'<span>FABA (AB↔가로수직)</span></span><span class="meas-val" style="color:var(--green)">'+fmtDeg(m.faba)+'</span></div>';
+    if(m.lowerNLA!==undefined) html+='<div class="meas-row"><span class="meas-label">'+chip(LM_COL.UL)+chip(LM_COL.A)+'<span>Lower-NLA (UL-A↔가로)</span></span><span class="meas-val" style="color:#f48fb1">'+fmtDeg(m.lowerNLA)+'</span></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+/* ══════════════════════════════════════════════════════
+   COMPARISON TABLE
+══════════════════════════════════════════════════════ */
+function renderComparison(){
+  var pxmm=pxPerCm?pxPerCm/10:null;
+  if(!pxmm){return '<div class="meas-empty">캘리브레이션이 필요합니다</div>'}
+  var m1=computeMeas(LM[0],pxmm);
+  var m2=computeMeas(LM[1],pxmm);
+  var allKeys=Object.keys(m1).concat(Object.keys(m2));
+  var uniqueKeys=allKeys.filter(function(v,i,a){return a.indexOf(v)===i});
+  if(uniqueKeys.length===0){return '<div class="meas-empty">두 이미지 모두 랜드마크를<br>찍으면 비교됩니다</div>'}
+
+  var META={
+    abDist:{label:'A-B 거리',unit:'mm',chip:chip(LM_COL.A)+chip(LM_COL.B)},
+    lsAB:{label:'Ls→AB',unit:'mm',chip:chip(LM_COL.Ls)},
+    liAB:{label:'Li→AB',unit:'mm',chip:chip(LM_COL.Li)},
+    lsliDiff:{label:'Ls−Li',unit:'mm',chip:chip(LM_COL.Ls)+chip(LM_COL.Li)},
+    mls:{label:'MLS',unit:'mm',chip:chip(LM_COL.B)+chip(LM_COL.Pog)},
+    lsliH:{label:'Ls↔Li',unit:'mm',chip:chip(LM_COL.Ls)+chip(LM_COL.Li)},
+    faba:{label:'FABA',unit:'°',chip:chip(LM_COL.A)+chip(LM_COL.B)},
+    lowerNLA:{label:'Lower-NLA',unit:'°',chip:chip(LM_COL.UL)+chip(LM_COL.A)}
+  };
+  var order=['abDist','lsAB','liAB','lsliDiff','mls','lsliH','faba','lowerNLA'];
+
+  var html='<div class="meas-panel"><table class="cmp-table">';
+  html+='<tr><th>항목</th><th>1</th><th>2</th><th>차이</th></tr>';
+  order.forEach(function(key){
+    var v1=m1[key],v2=m2[key];
+    if(v1===undefined&&v2===undefined)return;
+    var meta=META[key]||{label:key,unit:'',chip:''};
+    var isAngle=(meta.unit==='°');
+    var s1=v1!==undefined?v1.toFixed(1)+meta.unit:'—';
+    var s2=v2!==undefined?v2.toFixed(1)+meta.unit:'—';
+    var diffStr='—',diffCls='diff-zero';
+    if(v1!==undefined&&v2!==undefined){
+      var d=v2-v1;
+      diffStr=(d>=0?'+':'')+d.toFixed(1)+meta.unit;
+      diffCls=Math.abs(d)<0.05?'diff-zero':(d>0?'diff-pos':'diff-neg');
+    }
+    html+='<tr>';
+    html+='<td><div class="name-cell">'+meta.chip+'<span>'+meta.label+'</span></div></td>';
+    html+='<td style="color:var(--accent)">'+s1+'</td>';
+    html+='<td style="color:#f48fb1">'+s2+'</td>';
+    html+='<td class="'+diffCls+'">'+diffStr+'</td>';
+    html+='</tr>';
+  });
+  html+='</table></div>';
+  return html;
+}
+
+function updateAllMeasurements(){
+  var pxmm=pxPerCm?pxPerCm/10:null;
+  var n=currentTab;
+  document.getElementById('meas-content').innerHTML=renderMeas(LM[n-1],pxmm);
+  document.getElementById('cmp-content').innerHTML=renderComparison();
+  document.getElementById('pt-dist-content').innerHTML=renderPointDist(pxmm);
+}
+
+function renderPointDist(pxmm){
+  var p1=PT.pt1, p2=PT.pt2;
+  if(!p1&&!p2){
+    return '<div class="meas-empty">이미지 1에 Point1,<br>이미지 2에 Point2를<br>찍으면 거리가 계산됩니다</div>';
+  }
+  var html='<div class="meas-panel">';
+  // Point1 coords
+  if(p1){
+    var x1mm=pxmm?(p1.x/pxmm).toFixed(1):'—';
+    var y1mm=pxmm?(p1.y/pxmm).toFixed(1):'—';
+    html+='<div class="meas-row"><span class="meas-label"><span class="mc" style="background:'+PT_COL.pt1+'"></span><span>Point1 위치</span></span><span class="meas-val" style="color:'+PT_COL.pt1+'">'+x1mm+', '+y1mm+' mm</span></div>';
+  }
+  // Point2 coords
+  if(p2){
+    var x2mm=pxmm?(p2.x/pxmm).toFixed(1):'—';
+    var y2mm=pxmm?(p2.y/pxmm).toFixed(1):'—';
+    html+='<div class="meas-row"><span class="meas-label"><span class="mc" style="background:'+PT_COL.pt2+'"></span><span>Point2 위치</span></span><span class="meas-val" style="color:'+PT_COL.pt2+'">'+x2mm+', '+y2mm+' mm</span></div>';
+  }
+  // Distance between the two (both must exist + calibrated)
+  if(p1&&p2&&pxmm){
+    var dx=p2.x-p1.x, dy=p2.y-p1.y;
+    var distMm=Math.hypot(dx,dy)/pxmm;
+    var hDistMm=Math.abs(dx)/pxmm;
+    var vDistMm=Math.abs(dy)/pxmm;
+    html+='<div class="meas-row"><span class="meas-label"><span class="mc" style="background:'+PT_COL.pt1+'"></span><span class="mc" style="background:'+PT_COL.pt2+'"></span><span>P1↔P2 직선거리</span></span><span class="meas-val" style="color:#fff;font-size:13px">'+distMm.toFixed(1)+' mm</span></div>';
+    html+='<div class="meas-row"><span class="meas-label"><span style="width:6px;display:inline-block"></span><span>수평 거리</span></span><span class="meas-val" style="color:var(--text2)">'+hDistMm.toFixed(1)+' mm</span></div>';
+    html+='<div class="meas-row"><span class="meas-label"><span style="width:6px;display:inline-block"></span><span>수직 거리</span></span><span class="meas-val" style="color:var(--text2)">'+vDistMm.toFixed(1)+' mm</span></div>';
+  } else if(p1&&p2&&!pxmm){
+    html+='<div class="meas-row"><span class="meas-label" style="color:var(--warn)">캘리브레이션 필요</span></div>';
+  }
+  html+='</div>';
+  return html;
+}
+
+/* ══════════════════════════════════════════════════════
+   LANDMARK SELECTION
+══════════════════════════════════════════════════════ */
+function selectLm(name){
+  if(!pxPerCm){setCalStatus('cal','먼저 캘리브레이션을 완료하세요');return}
+  if(!imgs[currentTab-1]){alert('이미지를 먼저 업로드하세요');return}
+  resetLmBtns();
+  if(activeLm===name){activeLm=null;UC[currentTab-1].style.cursor='default';setCalStatus('done','랜드마크를 선택하세요.');return}
+  activeLm=name;activePoint=null;
+  var btn=document.getElementById('lmbtn-'+name);
+  btn.style.borderColor=LM_COL[name];btn.style.color=LM_COL[name];btn.style.borderWidth='1.5px';
+  UC[currentTab-1].style.cursor='crosshair';
+  setCalStatus('lm','[이미지 '+currentTab+'] '+name+' 위치를 클릭하세요');
+}
+function selectPoint(n){
+  if(!pxPerCm){setCalStatus('cal','먼저 캘리브레이션을 완료하세요');return}
+  var imgIdx=n;
+  if(!imgs[imgIdx-1]){alert('이미지 '+imgIdx+'를 먼저 업로드하세요');return}
+  resetLmBtns();
+  if(activePoint===n){
+    activePoint=null;UC[imgIdx-1].style.cursor='default';
+    setCalStatus('done','포인트 선택 취소.');return;
+  }
+  activePoint=n; activeLm=null;
+  // switchTab first (it calls resetLmBtns internally), then re-apply highlight
+  switchTab(imgIdx);
+  var col=n===1?PT_COL.pt1:PT_COL.pt2;
+  var btn=document.getElementById('lmbtn-Point'+n);
+  btn.style.borderColor=col;btn.style.color=col;btn.style.borderWidth='1.5px';
+  UC[imgIdx-1].style.cursor='crosshair';
+  setCalStatus('lm','[이미지 '+imgIdx+'] Point'+n+' 위치를 클릭하세요');
+}
+function resetLmBtns(){
+  LM_KEYS.forEach(function(k){
+    var b=document.getElementById('lmbtn-'+k);
+    b.style.borderColor='';b.style.color='';b.style.borderWidth='';
+  });
+  ['Point1','Point2'].forEach(function(k){
+    var b=document.getElementById('lmbtn-'+k);
+    b.style.borderColor='';b.style.color='';b.style.borderWidth='';
+  });
+}
+function clearLandmarks(){
+  LM[currentTab-1]={A:null,B:null,Pog:null,Ls:null,Li:null,UL:null};
+  // also clear the point for this image
+  if(currentTab===1) PT.pt1=null;
+  if(currentTab===2) PT.pt2=null;
+  activeLm=null;activePoint=null;resetLmBtns();
+  drawLandmarks(currentTab);updateAllMeasurements();
+  setCalStatus('done','이미지 '+currentTab+' 랜드마크 초기화 완료.');
+}
+
+/* ══════════════════════════════════════════════════════
+   CALIBRATION
+══════════════════════════════════════════════════════ */
+function startCal(){
+  if(!imgs[0]){setCalStatus('cal','이미지 1을 먼저 업로드하세요');return}
+  calMode=true;calPts=[];activeLm=null;originMode=false;
+  resetLmBtns();
+  document.getElementById('btn-origin').classList.remove('success');
+  document.getElementById('btn-cal').classList.add('primary');
+  UC[0].style.cursor='crosshair';
+  setCalStatus('cal','이미지 1에서 첫 번째 기준점을 클릭하세요');
+  uc[0].clearRect(0,0,dims[0].w,dims[0].h);
+  gc[0].clearRect(0,0,dims[0].w,dims[0].h);
+  gc[1].clearRect(0,0,dims[1].w,dims[1].h);
+  document.getElementById('scale-badge').style.display='none';
+  switchTab(1);
+}
+function resetCal(){pxPerCm=null;document.getElementById('scale-badge').style.display='none';startCal()}
+function setCalStatus(type,msg){
+  document.getElementById('cal-status').className='status '+type;
+  document.getElementById('cal-text').textContent=msg;
+}
+function drawCalUI(){
+  var ctx=uc[0];
+  ctx.clearRect(0,0,dims[0].w,dims[0].h);
+  for(var i=0;i<calPts.length;i++){
+    var p=calPts[i];
+    ctx.beginPath();ctx.arc(p.x,p.y,8,0,Math.PI*2);
+    ctx.fillStyle='rgba(239,83,80,0.8)';ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='bold 12px monospace';ctx.fillText(i+1,p.x+10,p.y-7);
+  }
+  if(calPts.length===2){
+    ctx.beginPath();ctx.moveTo(calPts[0].x,calPts[0].y);ctx.lineTo(calPts[1].x,calPts[1].y);
+    ctx.strokeStyle='rgba(239,83,80,0.6)';ctx.lineWidth=1.2;ctx.setLineDash([7,5]);ctx.stroke();ctx.setLineDash([]);
+    var mx=(calPts[0].x+calPts[1].x)/2,my=(calPts[0].y+calPts[1].y)/2;
+    var dx=calPts[1].x-calPts[0].x,dy=calPts[1].y-calPts[0].y;
+    ctx.fillStyle='rgba(239,83,80,0.9)';ctx.font='bold 12px monospace';
+    ctx.fillText(Math.sqrt(dx*dx+dy*dy).toFixed(1)+'px = 0.5cm',mx+6,my-6);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   UI CANVAS CLICK — per image
+══════════════════════════════════════════════════════ */
+function makeClickHandler(n){
+  return function(e){
+    var rect=UC[n-1].getBoundingClientRect();
+    var sx=dims[n-1].w/rect.width,sy=dims[n-1].h/rect.height;
+    var cx=(e.clientX-rect.left)*sx,cy=(e.clientY-rect.top)*sy;
+
+    // Origin mode (only image 1)
+    if(originMode&&n===1){
+      var pm=pxPerCm/10;
+      document.getElementById('offx').value=(cx/pm).toFixed(2);
+      document.getElementById('offy').value=(cy/pm).toFixed(2);
+      originMode=false;document.getElementById('btn-origin').classList.remove('success');
+      UC[0].style.cursor='default';setCalStatus('done','원점이 설정되었습니다.');drawBothGrids();return;
+    }
+    // Cal mode (only image 1)
+    if(calMode&&n===1){
+      calPts.push({x:cx,y:cy});drawCalUI();
+      if(calPts.length===1){setCalStatus('cal','두 번째 기준점을 클릭하세요 (0.5cm 거리)');}
+      else if(calPts.length===2){
+        var dx=calPts[1].x-calPts[0].x,dy=calPts[1].y-calPts[0].y;
+        pxPerCm=Math.sqrt(dx*dx+dy*dy)*2;
+        calMode=false;document.getElementById('btn-cal').classList.remove('primary');
+        UC[0].style.cursor='default';
+        var bd=document.getElementById('scale-badge');
+        bd.textContent='0.5cm기준 · 1mm='+(pxPerCm/10).toFixed(2)+'px';
+        bd.style.display='inline';
+        setCalStatus('done','캘리브레이션 완료! 각 이미지에서 독립적으로 랜드마크를 찍으세요.');
+        updateBadge(1);drawBothGrids();
+      }
+      return;
+    }
+    // Landmark placement
+    if(activeLm&&currentTab===n){
+      LM[n-1][activeLm]={x:cx,y:cy};
+      var placed=activeLm;
+      var btn=document.getElementById('lmbtn-'+placed);
+      btn.style.borderColor=LM_COL[placed];btn.style.color=LM_COL[placed];
+      activeLm=null;UC[n-1].style.cursor='default';
+      setCalStatus('done','[이미지 '+n+'] '+placed+' 배치 완료.');
+      drawLandmarks(n);updateAllMeasurements();
+    }
+    // Point1 or Point2 placement
+    if(activePoint===n){
+      if(n===1) PT.pt1={x:cx,y:cy};
+      else      PT.pt2={x:cx,y:cy};
+      var pcol=n===1?PT_COL.pt1:PT_COL.pt2;
+      var pbtn=document.getElementById('lmbtn-Point'+n);
+      pbtn.style.borderColor=pcol;pbtn.style.color=pcol;
+      activePoint=null;UC[n-1].style.cursor='default';
+      setCalStatus('done','[이미지 '+n+'] Point'+n+' 배치 완료.');
+      drawLandmarks(n);updateAllMeasurements();
+    }
+  };
+}
+function makeMoveHandler(n){
+  return function(e){
+    var rect=UC[n-1].getBoundingClientRect();
+    var sx=dims[n-1].w/rect.width,sy=dims[n-1].h/rect.height;
+    var cx=(e.clientX-rect.left)*sx,cy=(e.clientY-rect.top)*sy;
+    if(pxPerCm){
+      var pm=pxPerCm/10;
+      var ox=parseFloat(document.getElementById('offx').value)||0;
+      var oy=parseFloat(document.getElementById('offy').value)||0;
+      document.getElementById('coord-bar').textContent='img'+n+'  X:'+(cx/pm-ox).toFixed(1)+'mm  Y:'+(cy/pm-oy).toFixed(1)+'mm';
+    }
+    if(calMode&&n===1&&calPts.length===1){
+      drawCalUI();
+      var dx=cx-calPts[0].x,dy=cy-calPts[0].y;
+      uc[0].beginPath();uc[0].moveTo(calPts[0].x,calPts[0].y);uc[0].lineTo(cx,cy);
+      uc[0].strokeStyle='rgba(239,83,80,0.5)';uc[0].lineWidth=1.2;uc[0].setLineDash([5,4]);uc[0].stroke();uc[0].setLineDash([]);
+      uc[0].fillStyle='rgba(239,83,80,0.85)';uc[0].font='11px monospace';
+      uc[0].fillText(Math.sqrt(dx*dx+dy*dy).toFixed(0)+'px',cx+6,cy-4);
+    }
+  };
+}
+UC[0].addEventListener('click',makeClickHandler(1));
+UC[1].addEventListener('click',makeClickHandler(2));
+UC[0].addEventListener('mousemove',makeMoveHandler(1));
+UC[1].addEventListener('mousemove',makeMoveHandler(2));
+
+/* ══════════════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════════════ */
+function switchTab(n){
+  currentTab=n;
+  document.getElementById('tab1').classList.toggle('active',n===1);
+  document.getElementById('tab2').classList.toggle('active',n===2);
+  document.getElementById('view1').classList.toggle('active',n===1);
+  document.getElementById('view2').classList.toggle('active',n===2);
+  document.getElementById('lm-tab-label').textContent='이미지 '+n;
+  document.getElementById('meas-tab-label').textContent='이미지 '+n;
+  // cursor reset for the other tab's canvas
+  UC[n-1].style.cursor=(activeLm||calMode)?'crosshair':'default';
+  if(imgs[n-1]){
+    document.getElementById('img-info').textContent=dims[n-1].w+'×'+dims[n-1].h+'px';
+    document.getElementById('bright').value=bright[n-1];
+    document.getElementById('contr').value=contr[n-1];
+    document.getElementById('bval').textContent=bright[n-1]+'%';
+    document.getElementById('cval').textContent=contr[n-1]+'%';
+  }
+  // re-highlight any placed landmarks for this tab
+  resetLmBtns();
+  LM_KEYS.forEach(function(k){
+    if(LM[n-1][k]){
+      var b=document.getElementById('lmbtn-'+k);
+      b.style.borderColor=LM_COL[k];b.style.color=LM_COL[k];
+    }
+  });
+  // re-highlight point buttons if placed
+  if(PT.pt1){var pb1=document.getElementById('lmbtn-Point1');pb1.style.borderColor=PT_COL.pt1;pb1.style.color=PT_COL.pt1;}
+  if(PT.pt2){var pb2=document.getElementById('lmbtn-Point2');pb2.style.borderColor=PT_COL.pt2;pb2.style.color=PT_COL.pt2;}
+  // if a point is actively being placed, keep its button highlighted
+  if(activePoint){
+    var apc=activePoint===1?PT_COL.pt1:PT_COL.pt2;
+    var apb=document.getElementById('lmbtn-Point'+activePoint);
+    apb.style.borderColor=apc;apb.style.color=apc;apb.style.borderWidth='1.5px';
+  }
+  updateAllMeasurements();
+}
+function updateBadge(n){
+  var el=document.getElementById('badge'+n);
+  if(n===1&&pxPerCm){el.textContent='완료';el.className='tbadge done'}
+  else if(n===2&&imgs[1]){el.textContent='준비';el.className='tbadge done'}
+}
+
+/* ══════════════════════════════════════════════════════
+   CONTROLS
+══════════════════════════════════════════════════════ */
+function toggleOrigin(){
+  if(!pxPerCm){setCalStatus('cal','먼저 캘리브레이션을 완료하세요');return}
+  originMode=!originMode;activeLm=null;resetLmBtns();
+  var btn=document.getElementById('btn-origin');
+  btn.classList.toggle('success',originMode);
+  btn.textContent=originMode?'위치를 클릭하세요...':'클릭으로 원점 지정';
+  UC[0].style.cursor=originMode?'crosshair':'default';
+  if(originMode){switchTab(1);setCalStatus('info','이미지 1에서 원점 위치를 클릭하세요')}
+}
+function resetOff(){document.getElementById('offx').value=0;document.getElementById('offy').value=0;drawBothGrids()}
+function toggleLabel(){
+  showLabel=!showLabel;
+  var b=document.getElementById('btn-label');b.classList.toggle('on',showLabel);
+  b.textContent=showLabel?'표시 중':'숨김';drawBothGrids();
+}
+document.getElementById('gcol').addEventListener('input',drawBothGrids);
+document.getElementById('galpha').addEventListener('input',function(){document.getElementById('aval').textContent=this.value+'%';drawBothGrids()});
+document.getElementById('offx').addEventListener('input',drawBothGrids);
+document.getElementById('offy').addEventListener('input',drawBothGrids);
+document.getElementById('bright').addEventListener('input',function(){
+  bright[currentTab-1]=parseInt(this.value);document.getElementById('bval').textContent=this.value+'%';
+  if(imgs[currentTab-1])drawImg(currentTab);
+});
+document.getElementById('contr').addEventListener('input',function(){
+  contr[currentTab-1]=parseInt(this.value);document.getElementById('cval').textContent=this.value+'%';
+  if(imgs[currentTab-1])drawImg(currentTab);
+});
+
+/* ══════════════════════════════════════════════════════
+   SAVE
+══════════════════════════════════════════════════════ */
+function saveImage(){
+  var n=currentTab;
+  if(!imgs[n-1]){alert('이미지를 먼저 업로드하세요');return}
+  var out=document.createElement('canvas');
+  out.width=dims[n-1].w;out.height=dims[n-1].h;
+  var ctx=out.getContext('2d');
+  ctx.drawImage(IC[n-1],0,0);ctx.drawImage(GC[n-1],0,0);ctx.drawImage(LMC[n-1],0,0);
+  var a=document.createElement('a');
+  a.download='xray_grid_img'+n+'.png';a.href=out.toDataURL('image/png');a.click();
+}
+</script>
+</body>
+</html>
